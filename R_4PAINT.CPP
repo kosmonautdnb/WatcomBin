@@ -36,7 +36,6 @@ float backdropBrightness = 0;
 bool backdropGreyScale = false;
 bool grid = false;
 bool onePixelGrid = true; 
-unsigned int gridColor = 0xffffffff;
 float gridIntensity = 0.25;
 unsigned int paintColor = 0xffffffff;
 int mousePointerX = 0;
@@ -184,6 +183,7 @@ void blitCanvas() {
         int r1 = rgba & 255;
         int g1 = (rgba>>8) & 255;
         int b1 = (rgba>>16) & 255;
+        unsigned int gridColor = rgba ^ 0xffffffff;
         int r2 = gridColor & 255;
         int g2 = (gridColor>>8) & 255;
         int b2 = (gridColor>>16) & 255;
@@ -195,11 +195,11 @@ void blitCanvas() {
       *write++ = rgba|0xff000000;
       ix += ixa;
     }
-    *write++= gridColor;
+    *write++= 0xffffffff;
   }
   
   for (int x = canvasX0; x < canvasX1; x++) {
-    glFrameBuffer[canvasY1*glFrameBufferWidth+x] = gridColor;
+    glFrameBuffer[canvasY1*glFrameBufferWidth+x] = 0xffffffff;
   }
 }
 
@@ -740,7 +740,7 @@ int main(int argc, const char *argv) {
       ImGui::Text("Press 'Q' for more performance.");
       ImGui::Text("Right mouse button = get color.");
       if (!showTestConvert ) {
-        if (ImGui::Button("Test Convert")) {
+        if (ImGui::Button("Test Convert 'S'")||currentKey=='s') {
           convert();
           showTestConvert = true;
         }
@@ -749,7 +749,7 @@ int main(int argc, const char *argv) {
           ImGui::Text("Colors xy 0/0,0/1");
         }
       } else if (showTestConvert) {
-        if (ImGui::Button("Clear Convert"))
+        if (ImGui::Button("Clear Convert 'S'")||currentKey=='s')
           showTestConvert = false;
         ImGui::SameLine();
         ImGui::PushItemWidth(SLIDERSIZE);ImGui::SliderFloat("Alpha",&convertAlpha,0,1);ImGui::PopItemWidth();
