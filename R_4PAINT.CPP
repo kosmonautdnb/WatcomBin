@@ -252,12 +252,14 @@ void blitPalette() {
   }
 }
 
-int peak(int x8, int p) {
-  x8>>=8;
-  if (x8>256+p-(255/3)) return (x8-(256+p-(255/3)))*3;
-  if (x8<p-(255/3)||x8>p+(255/3)) return 0;
-  if (x8>p) return ((255/3)-(x8-p))*3;
-  return (x8-p+255/3)*3;
+int peak(int a, int s) {
+  a -= s;
+  a -= 60+180;
+  a = (a+360*2)%360;
+  if (a < 60) return a * 255 / 60;
+  if (a < 60+120) return 255;
+  if (a < 240) return 255-(a-(60+120))*255/60;
+  return 0;
 }
 
 unsigned int hsvColor = 0;
@@ -300,11 +302,11 @@ void blitColorSelect() {
 
   {for (int y = selectY1+15; y < selectY1+25; y++) {
     int xp = 0<<8;
-    int xa = (256<<8)/(selectX1-selectX0);
+    int xa = ((256*360)<<8)/(selectX1-selectX0);
     for (int x = selectX0; x < selectX1; x++) {
-      int r2 = peak(xp,256/3*0);
-      int g2 = peak(xp,256/3*1);
-      int b2 = peak(xp,256/3*2);
+      int r2 = peak(xp>>16,0);
+      int g2 = peak(xp>>16,120);
+      int b2 = peak(xp>>16,240);
       unsigned int rgba = r2|(g2<<8)|(b2<<16)|0xff000000;
       if ((int)mouseX == x && (int)mouseY == y) {
         if (mouseButtons & 3)
