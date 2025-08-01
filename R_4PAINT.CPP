@@ -47,17 +47,23 @@ bool multiColor = false;
 
 bool hasUndo = true;
 
-int canvasX0 = 0;
-int canvasY0 = 0;
-int canvasX1 = 320;
-int canvasY1 = 200;
+int canvasX0;
+int canvasY0;
+int canvasX1;
+int canvasY1;
 
-int paletteX0 = 640-88;
-int paletteY0 = 88+20;
-int paletteX1 = 640;
-int paletteY1 = 300;
+int paletteX0;
+int paletteY0;
+int paletteX1;
+int paletteY1;
 int paletteColor = 0;
-int paletteHovering = -1;
+unsigned int paletteHovering = 0;
+
+int selectX0;
+int selectY0;
+int selectX1;
+int selectY1;
+bool displayColorSelector = false;
 
 int SLIDERSIZE = 64;
 
@@ -221,14 +227,14 @@ void blitLupe() {
 }
 
 void blitPalette() {
-  paletteHovering = -1;
+  paletteHovering = 0;
   for (int y = paletteY0; y < paletteY1; y++) {
     int ry = (y - paletteY0)*16/(paletteY1-paletteY0);
     for (int x = paletteX0; x < paletteX1; x++) {
       int rx = (x - paletteX0)*8/(paletteX1-paletteX0);
       int index = rx*16+ry;
       if ((int)mouseX == x && (int)mouseY == y) {
-        paletteHovering = index;
+        paletteHovering = plus4PaletteStandard[index];
       }
       if (mouseButtons & 3) {
         if (!mouseCaptured && (int)mouseX == x && (int)mouseY == y) {
@@ -244,6 +250,72 @@ void blitPalette() {
       glFrameBuffer[x+y*glFrameBufferWidth] = rgba|0xff000000;
     }
   }
+}
+
+int peak(int x8, int p) {
+  x8>>=8;
+  if (x8>256+p-(255/3)) return (x8-(256+p-(255/3)))*3;
+  if (x8<p-(255/3)||x8>p+(255/3)) return 0;
+  if (x8>p) return ((255/3)-(x8-p))*3;
+  return (x8-p+255/3)*3;
+}
+
+unsigned int hsvColor = 0;
+
+void blitColorSelect() {
+  bool already = false;
+  {for (int y = selectY0; y < selectY1+10; y++) {
+    int saturation = 0<<8;
+    int saturationAdd = (256<<8)/(selectX1-selectX0);
+    int r = hsvColor&255;
+    int g = (hsvColor>>8)&255;
+    int b = (hsvColor>>16)&255;
+    int grey = 128;
+    int light = (y - selectY0)*256/(selectY1-selectY0)*2;
+    for (int x = selectX0; x < selectX1; x++) {
+      int r2 = (((((r - grey)*saturation)>>16)+grey)*light)>>8;
+      int g2 = (((((g - grey)*saturation)>>16)+grey)*light)>>8;
+      int b2 = (((((b - grey)*saturation)>>16)+grey)*light)>>8;
+      if (r2>255) r2 = 255;
+      if (g2>255) g2 = 255;
+      if (b2>255) b2 = 255;
+      unsigned int rgba = r2|(g2<<8)|(b2<<16)|0xff000000;
+      if ((int)mouseX == x && (int)mouseY == y) {
+        if(mouseButtons&3) {
+          paintColor = rgba;
+          paletteColor = -1;
+        }
+        paletteHovering = rgba;
+      }
+      if (rgba == paintColor && (!already)) {
+        already=true;
+        rgba = 0xff000000;
+        glFrameBuffer[x+(y-1)*glFrameBufferWidth] = rgba;
+        rgba = 0xffffffff;
+      }
+      glFrameBuffer[x+y*glFrameBufferWidth] = rgba;
+      saturation += saturationAdd;
+    }
+  }}
+
+  {for (int y = selectY1+15; y < selectY1+25; y++) {
+    int xp = 0<<8;
+    int xa = (256<<8)/(selectX1-selectX0);
+    for (int x = selectX0; x < selectX1; x++) {
+      int r2 = peak(xp,256/3*0);
+      int g2 = peak(xp,256/3*1);
+      int b2 = peak(xp,256/3*2);
+      unsigned int rgba = r2|(g2<<8)|(b2<<16)|0xff000000;
+      if ((int)mouseX == x && (int)mouseY == y) {
+        if (mouseButtons & 3)
+          hsvColor = rgba;
+      }
+      if (rgba == hsvColor) rgba = 0xffffffff;
+      glFrameBuffer[x+y*glFrameBufferWidth] = rgba;
+      xp+=xa;
+    }
+  }}
+
 }
 
 String fileDialog(bool loadInsteadOfSave, const char *filter) {
@@ -610,7 +682,12 @@ int main(int argc, const char *argv) {
   paletteX1 = glFrameBufferWidth;
   paletteY1 = 300;
   paletteColor = 0;
-  paletteHovering = -1;
+  paletteHovering = 0;
+
+  selectX0 = glFrameBufferWidth-88;
+  selectY0 = 88+20+200;
+  selectX1 = glFrameBufferWidth;
+  selectY1 = 250+200;
 
 
   bool lastWasPressed = false;
@@ -685,7 +762,7 @@ int main(int argc, const char *argv) {
   
       ImGui::Begin("4PAINT v1a");
       ImGui::Text("Image (320x200)");
-      ImGui::Text("Pos:%d/%d Col:#%02x ABGR:%08x",mousePointerX,mousePointerY,paletteColor,paletteHovering >= 0 ? plus4PaletteStandard[paletteHovering] : paintColor);
+      ImGui::Text("Pos:%d/%d Col:#%02x ABGR:%08x",mousePointerX,mousePointerY,paletteColor<0?0:paletteColor,paletteHovering != 0 ? paletteHovering : paintColor);
       if (ImGui::Button("Load")) {serialize = LOAD_BITMAP;}
       ImGui::SameLine();
       if (ImGui::Button("Save")) {serialize = SAVE_BITMAP;}
@@ -761,6 +838,8 @@ int main(int argc, const char *argv) {
       ImGui::Text("%s",fileNamePRG.c_str());
 
       ImGui::Separator();
+      ImGui::Checkbox("Ext",&displayColorSelector);
+      ImGui::SameLine();
       float mouseSpeed2 = mouseSpeed;
       ImGui::PushItemWidth(SLIDERSIZE);ImGui::SliderFloat("MouseSpeed",&mouseSpeed2,0.1,2);ImGui::PopItemWidth();
       mouseSpeed = mouseSpeed2;
@@ -788,6 +867,7 @@ int main(int argc, const char *argv) {
     blitCanvas();
     blitLupe();
     blitPalette();
+    if (displayColorSelector) blitColorSelect();
     if (menuEnabled)
       ImGui::Render();
     else {
