@@ -189,7 +189,9 @@ void blitCanvas() {
         int r1 = rgba & 255;
         int g1 = (rgba>>8) & 255;
         int b1 = (rgba>>16) & 255;
-        unsigned int gridColor = rgba ^ 0xffffffff;
+        unsigned int grey = r1 + g1 + b1;
+        unsigned int gridColor = 0xffffffff;
+        if (grey>128*3) gridColor = 0xff000000;
         int r2 = gridColor & 255;
         int g2 = (gridColor>>8) & 255;
         int b2 = (gridColor>>16) & 255;
